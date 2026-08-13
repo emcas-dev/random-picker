@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<title>Random Picker</title>
+<style>
+:root{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif;color:#171717;background:#f6f6f8}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:linear-gradient(180deg,#fff 0,#f4f4f7 100%)}
+main{max-width:680px;margin:auto;padding:24px 18px 40px}
+h1{font-size:32px;margin:8px 0 18px;letter-spacing:-.8px}
+.card{background:#fff;border:1px solid #e5e5e9;border-radius:20px;padding:18px;box-shadow:0 4px 20px #0000000a;margin-bottom:14px}
+select,input,textarea,button{font:inherit}
+select,input,textarea{width:100%;border:1px solid #d8d8df;border-radius:12px;padding:12px;background:#fff}
+label{font-size:13px;font-weight:600;color:#666;display:block;margin:0 0 7px}
+.row{display:flex;gap:9px}.row>*{flex:1}
+button{border:0;border-radius:13px;padding:12px 15px;font-weight:650;cursor:pointer}
+.primary{background:#171717;color:white;font-size:18px;padding:15px;width:100%}
+.secondary{background:#eeeef2}.danger{background:#fff0f0;color:#b00020}
+.result{min-height:130px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:31px;font-weight:700;letter-spacing:-.5px;padding:18px}
+.muted{color:#777;font-size:14px}.items{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.item{display:flex;align-items:center;gap:8px;padding:10px 11px;background:#f6f6f8;border-radius:11px}
+.item span{flex:1;overflow-wrap:anywhere}.icon{padding:7px 10px;background:transparent}
+textarea{min-height:150px;resize:vertical}
+.small{font-size:12px;color:#777;margin-top:7px}
+h2{font-size:18px;margin:0 0 14px}
+.hidden{display:none}
+</style>
+</head>
+<body>
+<main>
+<h1>Random Picker</h1>
+
+<section class="card">
+<label for="listSelect">LIST</label>
+<div class="row">
+<select id="listSelect"></select>
+<button class="secondary" id="newList">New list</button>
+</div>
+</section>
+
+<section class="card">
+<div class="result" id="result">Ready when you are.</div>
+<button class="primary" id="pick">Pick Random</button>
+</section>
+
+<section class="card">
+<h2>Items</h2>
+<div class="row">
+<input id="newItem" placeholder="Add an item…" autocomplete="off">
+<button class="secondary" id="addItem">Add</button>
+</div>
+<div class="items" id="items"></div>
+<p class="muted" id="empty">No items yet. Add some above.</p>
+</section>
+
+<section class="card">
+<h2>Manage list</h2>
+<div class="row">
+<button class="secondary" id="rename">Rename list</button>
+<button class="danger" id="delete">Delete list</button>
+</div>
+</section>
+</main>
+
+<script>
+const KEY="randomPickerDataV1";
+let data=JSON.parse(localStorage.getItem(KEY)||"null")||{
+  lists:[{id:crypto.randomUUID(),name:"My List",items:[]}],current:null
+};
+if(!data.current)data.current=data.lists[0].id;
+const $=id=>document.getElementById(id);
+function save(){localStorage.setItem(KEY,JSON.stringify(data))}
+function current(){return data.lists.find(x=>x.id===data.current)||data.lists[0]}
+function render(){
+  const s=$("listSelect"); s.innerHTML="";
+  data.lists.forEach(l=>{const o=document.createElement("option");o.value=l.id;o.textContent=l.name;s.appendChild(o)});
+  s.value=current().id;
+  const box=$("items");box.innerHTML="";
+  $("empty").classList.toggle("hidden",current().items.length>0);
+  current().items.forEach((item,i)=>{
+    const row=document.createElement("div");row.className="item";
+    const span=document.createElement("span");span.textContent=item;
+    const edit=document.createElement("button");edit.className="icon";edit.textContent="Edit";
+    edit.onclick=()=>{const v=prompt("Edit item:",item);if(v!==null&&v.trim()){current().items[i]=v.trim();save();render()}};
+    const del=document.createElement("button");del.className="icon";del.textContent="Delete";
+    del.onclick=()=>{current().items.splice(i,1);save();render()};
+    row.append(span,edit,del);box.append(row);
+  });
+}
+$("listSelect").onchange=e=>{data.current=e.target.value;$("result").textContent="Ready when you are.";save();render()};
+$("pick").onclick=()=>{
+  const items=current().items;
+  if(!items.length){$("result").textContent="Add some items first.";return}
+  $("result").textContent=items[Math.floor(Math.random()*items.length)];
+};
+$("addItem").onclick=()=>{
+  const v=$("newItem").value.trim();if(!v)return;
+  current().items.push(v);$("newItem").value="";save();render();$("newItem").focus();
+};
+$("newItem").onkeydown=e=>{if(e.key==="Enter")$("addItem").click()};
+$("newList").onclick=()=>{
+  const name=prompt("Name your new list:");
+  if(!name||!name.trim())return;
+  const l={id:crypto.randomUUID(),name:name.trim(),items:[]};data.lists.push(l);data.current=l.id;save();render();
+};
+$("rename").onclick=()=>{
+  const l=current(),name=prompt("Rename list:",l.name);
+  if(name&&name.trim()){l.name=name.trim();save();render()}
+};
+$("delete").onclick=()=>{
+  if(data.lists.length===1){alert("You need to keep at least one list.");return}
+  if(!confirm(`Delete "${current().name}"?`))return;
+  const i=data.lists.findIndex(x=>x.id===data.current);data.lists.splice(i,1);data.current=data.lists[Math.max(0,i-1)].id;
+  $("result").textContent="Ready when you are.";save();render();
+};
+render();
+</script>
+</body>
+</html>
